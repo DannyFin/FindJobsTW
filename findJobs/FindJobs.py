@@ -2,8 +2,15 @@ import os
 import requests
 import time
 import pandas as pd
+import re
 from bs4 import BeautifulSoup
 from lxml import html
+from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+#中文
+plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
+plt.rcParams['axes.unicode_minus'] = False
 
 
 class Jobs:
@@ -175,6 +182,10 @@ class Jobs:
         recruit_incentives = tree.xpath("/html/body/div[2]/div/div[2]/div/div[1]/div[4]/div[6]/div/p")#div6
         if recruit_incentives:
             data_dict["招募福利"] = recruit_incentives[0].text
+            
+        #薪資待遇拆解
+        salary_dict = self.parse_salary(data_dict["工作待遇"][0])
+        data_dict = {**data_dict, **salary_dict}
 
         return data_dict
 
@@ -203,13 +214,19 @@ class Jobs:
                 continue
             if i == max_jobs-1:
                 break        
-        self.data = data
         fields =['公司名稱', '職缺名稱', '職缺連結', '職務名稱', '職務類別', '工作待遇',
+                 '薪資型態', '薪資下限', '薪資上限',
                  '工作性質', '上班地點', '遠端工作', '管理責任', '出差外派', '上班時段',
                  '休假制度', '可上班日', '需求人數', '語文條件', '工作經歷', '學歷要求',
                  '科系要求', '擅長工具', '工作技能', '具備駕照', '具備證照', '法定項目',
                  '其他福利', '招募福利']
         df = pd.DataFrame(columns = fields, data = data)
+        self.data = df.copy()
+        #針對統計用欄位做處理
+        self.data["語文條件"] = self.data["語文條件"].apply(lambda x : x.split(","))#拆分語言
+        self.data["科系要求"] = self.data["科系要求"].apply(lambda x: x[0].split("、") if type(x) == list else x)
+        self.data["具備駕照"] = self.data["具備駕照"].apply(lambda x: x[0].split("、") if type(x) == list else x)
+        self.data["學歷要求"] = self.data["學歷要求"].apply(lambda x: x[0].split("、") if type(x) == list else x)
         self.jobs = df
         print("資料已爬取完畢，請用self.jobs檢視資料或以save_jobs儲存檔案")
         return self.jobs
@@ -223,11 +240,123 @@ class Jobs:
         path = self.keyword + r"-職位資料爬蟲.xlsx"
         self.jobs.to_excel(path, index = False)
         print(f"{path}資料已儲存")
-           
+        
+    def show(self, column, top = 10):
+        total = self.data.shape[0]
+        if column == "all":#畫出全部的
+            for column_ in self.data.columns:
+                static = Counter(self.flatten(self.data[column_].dropna().tolist()))
+                common = static.most_common()
+                if not common:
+                    print(f"{column_}: 資料不足無法繪圖")
+                    continue
+                self.draw(column_, data = common, total = total, top = top )
+        else:
+            static = Counter(self.flatten(self.data[column].dropna().tolist()))
+            common = static.most_common()
+            if not common:
+                print(print(f"{column}: 資料不足無法繪圖"))
+            self.draw(column, data = common, total = total, top = top )
+    
+    def flatten(self, list_):
+        new_list = []
+        for n in list_:
+            if isinstance(n, list):
+                new_list.extend(self.flatten(n))
+            else:
+                new_list.append(n)
+        return new_list
+    
+    def draw(self, column, data, total, top = 10):
+        # 使用中文字體
+        plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
+        plt.rcParams['axes.unicode_minus'] = False
+
+        # 將技能和頻率分開，並計算百分比
+        skills, frequencies = zip(*data[:top])
+        percentages = [f/total*100 for f in frequencies]
+
+        # 繪製水平條形圖
+        plt.figure(figsize=(10,10))  # 設定圖形大小
+        bars = plt.barh(skills, frequencies, color='skyblue')
+        plt.xlabel('次數')  # x軸標籤
+        plt.title(column)  # 圖形標題
+
+        # 在條形旁邊添加百分比數據
+        for bar, percentage in zip(bars, percentages):
+            plt.text(bar.get_width() + 0.2, bar.get_y() + bar.get_height()/2, 
+                     '{0:.1f}%'.format(percentage), va='center')
+
+        # 顯示圖形
+        plt.gca().invert_yaxis()  # 倒轉y軸，讓最高的頻率在頂部
+        plt.show()
+    
+    def parse_salary(self, s):
+        pattern_1 = r"(時薪|面議|月薪|年薪|論件計酬|日薪)([\d,]+)~([\d,]+)元"
+        pattern_2 = r"(時薪|面議|月薪|年薪|論件計酬|日薪)([\d,]+)元以上"
+        pattern_3 = r"(時薪|面議|月薪|年薪|論件計酬|日薪)([\d,]+)元"
+        pattern_4 = r"待遇面議"
+
+        if re.match(pattern_1, s):
+            salary_type, min_salary, max_salary = re.match(pattern_1, s).groups()
+            return {"薪資型態": salary_type, "薪資下限": min_salary, "薪資上限": max_salary}
+        elif re.match(pattern_2, s):
+            salary_type, min_salary = re.match(pattern_2, s).groups()
+            return {"薪資型態": salary_type, "薪資下限": min_salary, "薪資上限": "無上限"}
+        elif re.match(pattern_3, s):
+            salary_type, salary = re.match(pattern_3, s).groups()
+            return {"薪資型態": salary_type, "薪資下限": salary, "薪資上限": salary}
+        elif re.match(pattern_4, s):
+            return {"薪資型態": "待遇面議", "薪資下限": "面議", "薪資上限": "面議"}
+        else:
+            return {"薪資型態": "未知", "薪資下限": "未知", "薪資上限": "未知"}
+    
+    def draw_box(self):
+        df = self.jobs.copy()
+        # Filter the dataframe
+        df = df[df['薪資型態'] == '月薪']
+        df = df[(df['薪資下限'] != '面議') & (df['薪資上限'] != '面議')]
+        # Replace '無上限' with '薪資下限'
+        df.loc[df['薪資上限'] == '無上限', '薪資上限'] = df.loc[df['薪資上限'] == '無上限', '薪資下限']
+        # Convert to numeric values
+        df['薪資下限'] = df['薪資下限'].str.replace(',', '').astype(float)
+        df['薪資上限'] = df['薪資上限'].str.replace(',', '').astype(float)
+        # Plot boxplot
+        df[['薪資下限', '薪資上限']].plot(kind='box')
+        plt.title('月薪下限和上限的箱型圖')
+        plt.ylabel('薪資')
+        plt.show()
+    
+    def draw_density(self):
+        df = self.jobs.copy()
+        # Filter the dataframe
+        df = df[df['薪資型態'] == '月薪']
+        df = df[(df['薪資下限'] != '面議') & (df['薪資上限'] != '面議')]
+
+        # Replace '無上限' with '薪資下限'
+        df.loc[df['薪資上限'] == '無上限', '薪資上限'] = df.loc[df['薪資上限'] == '無上限', '薪資下限']
+
+        # Convert to numeric values
+        df['薪資下限'] = df['薪資下限'].str.replace(',', '').astype(float)
+        df['薪資上限'] = df['薪資上限'].str.replace(',', '').astype(float)
+
+        # Plot the kernel density estimation for salary lower and upper limit
+        df['薪資下限'].plot(kind='kde', label='薪資下限')
+        df['薪資上限'].plot(kind='kde', label='薪資上限')
+
+        plt.title('月薪下限和上限的密度分佈')
+        plt.xlabel('薪資')
+        plt.ylabel('密度')
+        plt.legend()
+        plt.show()
+
 if __name__ == "__main__":
-    keyword = "平面設計"
+    keyword = "數據分析師"
     jobs = Jobs(keyword)
-    jobs.search_links(max_pages = 3)
+    jobs.search_links(max_pages = 1)#一頁是20個職缺
     jobs.find_jobs()
     jobs.save_jobs()
-    
+    jobs.draw_box()
+    jobs.draw_density()
+    #jobs.show("all") #一次秀出全部
+    jobs.show("職務類別")

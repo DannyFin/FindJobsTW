@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
     
 setup(
     name='FindJobsTW',    
-    version='0.2.6',      
+    version='0.3.1',      
     packages=find_packages(),    
     install_requires=requirements,
     author="Danny Fin",
