@@ -12,6 +12,7 @@ class Jobs:
         self.keyword = keyword
         self.job_links = []
         self.jobs = []
+        self.data = []
         
     def xpath_match(self, col_name, index):
         match = {"職務類別" : f"/html/body/div[2]/div/div[2]/div/div[1]/div[1]/div[2]/div[{index}]/div[2]/div/div//*/div/div/u",
@@ -34,16 +35,17 @@ class Jobs:
              "工作技能" : f"/html/body/div[2]/div/div[2]/div/div[1]/div[2]/div[2]/div[{index}]/div[2]/div//*/a/u",
              "具備證照" : f"/html/body/div[2]/div/div[2]/div/div[1]/div[2]/div[2]/div[{index}]/div[2]/div//*/p/a/u",
              "其他條件" : f"/html/body/div[2]/div/div[2]/div/div[1]/div[2]/div[3]/div/div[2]/div/div/p",
+             "具備駕照" : f"/html/body/div[2]/div/div[2]/div/div[1]/div[2]/div[2]/div[{index}]/div[2]/div",
             }
         return match.get(col_name)
 
-    def search_jobs(self, max_pages = 30):
+    def search_links(self, max_pages = 3):
         page = 1
         data = []
         print(f"開始搜尋關鍵字: {self.keyword}")
         while True:
             url = f'https://www.104.com.tw/jobs/search/?ro=0&kwop=7&keyword={self.keyword}&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&order=15&asc=0&page={page}&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1'
-            res = requests.get(url)
+            res = requests.get(url, timeout=10)
             soup = BeautifulSoup(res.text, features="lxml")
             jobs = soup.find_all('article', class_='b-block--top-bord job-list-item b-clearfix js-job-item')
             if not jobs:
@@ -101,7 +103,7 @@ class Jobs:
     
     #從個別職缺的網頁中取得資料
     def creep_job(self, url):
-        res = requests.get(url)
+        res = requests.get(url, timeout=10)
         tree = html.fromstring(res.text)
         data_dict = {}
         title = tree.xpath("/html/body/div[2]/div/div[1]/div[2]/div/div/div[1]/h1")
@@ -201,7 +203,13 @@ class Jobs:
                 continue
             if i == max_jobs-1:
                 break        
-        df = pd.DataFrame(columns = data[0].keys(), data = data)
+        self.data = data
+        fields =['公司名稱', '職缺名稱', '職缺連結', '職務名稱', '職務類別', '工作待遇',
+                 '工作性質', '上班地點', '遠端工作', '管理責任', '出差外派', '上班時段',
+                 '休假制度', '可上班日', '需求人數', '語文條件', '工作經歷', '學歷要求',
+                 '科系要求', '擅長工具', '工作技能', '具備駕照', '具備證照', '法定項目',
+                 '其他福利', '招募福利']
+        df = pd.DataFrame(columns = fields, data = data)
         self.jobs = df
         print("資料已爬取完畢，請用self.jobs檢視資料或以save_jobs儲存檔案")
         return self.jobs
@@ -217,9 +225,9 @@ class Jobs:
         print(f"{path}資料已儲存")
            
 if __name__ == "__main__":
-    keyword = "影像數據分析"
+    keyword = "平面設計"
     jobs = Jobs(keyword)
-    jobs.search_jobs(max_pages = 1)
+    jobs.search_links(max_pages = 3)
     jobs.find_jobs()
     jobs.save_jobs()
     
