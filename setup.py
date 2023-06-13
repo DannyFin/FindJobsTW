@@ -6,11 +6,11 @@ with open('requirements.txt') as f:
     
 setup(
     name='FindJobsTW',    
-    version='1.0.3',      
+    version='1.0.5',      
     packages=find_packages(),    
     install_requires=requirements,
     package_data={
-        'findJobs': ['templates/*', 'static/*']
+        'findJobs': ['templates/*', 'static/*', 'static/temp/*']
     },  
     author="Danny Fin",
     author_email="dannyfinselect@outlook.com",

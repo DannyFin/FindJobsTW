@@ -3,7 +3,7 @@ import webbrowser
 from threading import Timer
 from .url import search_url
 import pandas as pd
-from FindJobs import Jobs
+from .FindJobs import Jobs
 
 app = Flask(__name__)
 
@@ -96,8 +96,8 @@ def home():
         job.save_jobs()
         df = job.jobs.head(10)
         table = df.to_html(classes='data', header="true", index="false")
-        image_filename = 'salary_boxplot.png'
-        image_filename2 ='salary_density.png'
+        image_filename = 'temp/salary_boxplot.png'
+        image_filename2 ='temp/salary_density.png'
     
     return render_template('index.html', message=message, 
                            table = table,

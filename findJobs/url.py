@@ -1,13 +1,14 @@
 def search_url(submit):
     url = "https://www.104.com.tw/jobs/search/?jobsource=2018indexpoc&ro=0"
     ori_url = "https://www.104.com.tw/jobs/search/?jobsource=2018indexpoc&ro=0"
+    k = keyword(submit)
     j = jobtype(submit)
     a = area(submit)
     u = update_date(submit)
     s = salary_type(submit)
     s2 = salary_conditions(submit)
     e = experience(submit)
-    url = f"{ori_url}&{j}&{a}&{u}&{s}&{s2}&{e}"
+    url = f"{ori_url}&{k}&{j}&{a}&{u}&{s}&{s2}&{e}"
     while "&&" in url:
         url = url.replace("&&", "&")
     return url
@@ -32,6 +33,12 @@ jdict = {
     "軍警消／保全類" : "2017000000" ,
     "其他職類" : "2018000000" 
 }
+
+def keyword(submit):
+    keyword = ""
+    s1 = submit.get("關鍵字")
+    keyword = "keyword=" + s1
+    return keyword
 
 def salary_conditions(submit):
     salary = ""

@@ -6,6 +6,8 @@ import re
 from bs4 import BeautifulSoup
 from lxml import html
 from collections import Counter
+import matplotlib
+matplotlib.use('Agg')#必須在之前設定，才可以在非main中調用
 import matplotlib.pyplot as plt
 import seaborn as sns
 #中文
@@ -13,42 +15,7 @@ plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 
-def help():
-    print("在瀏覽器中執行請參考下列代碼:")
-    print()
-    text1 = '''
-from threading import Timer
-import webbrowser
-from findJobs import create_app, hlep
 
-def open_browser():
-    webbrowser.open_new('http://127.0.0.1:5000/')
-
-app = create_app()
-
-if __name__ == '__main__':
-    Timer(1, open_browser).start()
-    app.run(debug=True, use_reloader=False)
-'''
-    print(text1)
-    print()
-    print()
-    print("直接於程式碼中執行，請參考下列代碼:")
-    print()
-    text2 = '''
-from findJobs.FindJobs import Jobs
-keyword = "ESG"
-job = Jobs(keyword)
-job.search_links(max_pages=1) #設定爬取的頁數，一頁20個
-job.find_jobs()#找工作
-job.save_jobs()#把找到的工作存成excel檔案
-job.draw_box()
-job.draw_density()
-job.show(column = "all") #查看想統計的欄位，如果欄位名稱輸入"all"，會統計所有欄位，
-#若要快速關閉視窗可按ctrl+w
-'''
-    print(text2)
-    print()
 
 
 class Jobs:
@@ -236,8 +203,6 @@ class Jobs:
             max_jobs = self.job_links.shape[0]
         data = []
         for i in range(self.job_links.shape[0]):
-            if i >= max_jobs-1:
-                break 
             company = self.job_links["公司名稱"].iloc[i]
             job = self.job_links["職缺名稱"].iloc[i]
             url = self.job_links["職缺連結"].iloc[i]
@@ -255,6 +220,8 @@ class Jobs:
                 break
             except:
                 continue
+            if i >= max_jobs-1:
+                break 
                    
         fields =['公司名稱', '職缺名稱', '職缺連結', '職務名稱', '職務類別', '工作待遇',
                  '薪資型態', '薪資下限', '薪資上限',
@@ -371,9 +338,10 @@ class Jobs:
         if show:#show也會清空
             plt.show()
         else:
-            print("儲存plt")
-            plt.savefig(self.get_static_temp_path()+"/salary_boxplot.png", dpi=150, bbox_inches='tight')
-        plt.close()
+            path = self.get_static_temp_path() + "/salary_boxplot.png"
+            print("儲存plt", path)
+            plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.clf()
 
     def draw_density(self, show = True):
         df = self.jobs.copy()
@@ -399,10 +367,10 @@ class Jobs:
         if show:
             plt.show()
         else:
-            path = self.get_static_temp_path() + "/salary_density.png"
+            path = "./" + self.get_static_temp_path() + "/salary_density.png"
             print("儲存plt", path)
             plt.savefig(path, bbox_inches='tight')
-        plt.close()
+        plt.clf()
 
 
     def get_static_temp_path(self):
@@ -414,13 +382,50 @@ class Jobs:
             if 'findJobs' in current_dir or 'FindJobsTW' in current_dir:
                 return os.path.relpath(os.path.join(current_dir, 'static/temp'))
             current_dir = os.path.dirname(current_dir)
+    
+    def help(self):
+        print("在瀏覽器中執行請參考下列代碼:")
+        print()
+        text1 = '''
+            from threading import Timer
+            import webbrowser
+            from findJobs import create_app, hlep
+
+            def open_browser():
+                webbrowser.open_new('http://127.0.0.1:5000/')
+
+            app = create_app()
+
+            if __name__ == '__main__':
+                Timer(1, open_browser).start()
+                app.run(debug=True, use_reloader=False)
+            '''
+        print(text1)
+        print()
+        print()
+        print("直接於程式碼中執行，請參考下列代碼:")
+        print()
+        text2 = '''
+            from findJobs.FindJobs import Jobs
+            keyword = "ESG"
+            job = Jobs(keyword)
+            job.search_links(max_pages=1) #設定爬取的頁數，一頁20個
+            job.find_jobs()#找工作
+            job.save_jobs()#把找到的工作存成excel檔案
+            job.draw_box()
+            job.draw_density()
+            job.show(column = "all") #查看想統計的欄位，如果欄位名稱輸入"all"，會統計所有欄位，
+            #若要快速關閉視窗可按ctrl+w
+            '''
+        print(text2)
+        print()
 
     
 if __name__ == "__main__":
-    #a = Jobs("111")
-    #print(a.get_static_temp_path())
+    a = Jobs("111")
+    a.help()
     #print(os.path.relpath(a.get_static_temp_path()))
-    keyword = "分析師"
+''' keyword = "分析師"
     jobs = Jobs(keyword)
     jobs.search_links(max_pages = 1)#一頁是20個職缺
     jobs.find_jobs(max_jobs = 10)
@@ -429,4 +434,4 @@ if __name__ == "__main__":
     jobs.draw_density(show = False)
     #jobs.show("all") #一次秀出全部
     jobs.show("職務類別")
-    #help()
+    #help()'''
