@@ -13,6 +13,44 @@ plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 
+def help():
+    print("在瀏覽器中執行請參考下列代碼:")
+    print()
+    text1 = '''
+from threading import Timer
+import webbrowser
+from findJobs import create_app, hlep
+
+def open_browser():
+    webbrowser.open_new('http://127.0.0.1:5000/')
+
+app = create_app()
+
+if __name__ == '__main__':
+    Timer(1, open_browser).start()
+    app.run(debug=True, use_reloader=False)
+'''
+    print(text1)
+    print()
+    print()
+    print("直接於程式碼中執行，請參考下列代碼:")
+    print()
+    text2 = '''
+from findJobs.FindJobs import Jobs
+keyword = "ESG"
+job = Jobs(keyword)
+job.search_links(max_pages=1) #設定爬取的頁數，一頁20個
+job.find_jobs()#找工作
+job.save_jobs()#把找到的工作存成excel檔案
+job.draw_box()
+job.draw_density()
+job.show(column = "all") #查看想統計的欄位，如果欄位名稱輸入"all"，會統計所有欄位，
+#若要快速關閉視窗可按ctrl+w
+'''
+    print(text2)
+    print()
+
+
 class Jobs:
     
     def __init__ (self, keyword):
@@ -46,16 +84,18 @@ class Jobs:
             }
         return match.get(col_name)
 
-    def search_links(self, max_pages = 3):
+    def search_links(self, max_pages = 3, ori_url = None):
         page = 1
         data = []
+        if ori_url == None:
+            ori_url = f'https://www.104.com.tw/jobs/search/?ro=0&kwop=7&keyword={self.keyword}&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&order=15&asc=0&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1'
         print(f"開始搜尋關鍵字: {self.keyword}")
         while True:
-            url = f'https://www.104.com.tw/jobs/search/?ro=0&kwop=7&keyword={self.keyword}&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&order=15&asc=0&page={page}&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1'
+            url = ori_url + f"&page={page}"
             res = requests.get(url, timeout=10)
             soup = BeautifulSoup(res.text, features="lxml")
             jobs = soup.find_all('article', class_='b-block--top-bord job-list-item b-clearfix js-job-item')
-            if not jobs:
+            if not jobs:#找不到內容就中斷
                 break
             print("現在正在讀取第" + str(page) + "頁")
             for job in jobs:
@@ -74,6 +114,7 @@ class Jobs:
             print("-"*20)
         else:
             print("查詢失敗")
+            self.job_links = pd.DataFrame()
         return self.job_links
         
     def save_jobs_link(self):
@@ -195,6 +236,8 @@ class Jobs:
             max_jobs = self.job_links.shape[0]
         data = []
         for i in range(self.job_links.shape[0]):
+            if i >= max_jobs-1:
+                break 
             company = self.job_links["公司名稱"].iloc[i]
             job = self.job_links["職缺名稱"].iloc[i]
             url = self.job_links["職缺連結"].iloc[i]
@@ -212,8 +255,7 @@ class Jobs:
                 break
             except:
                 continue
-            if i == max_jobs-1:
-                break        
+                   
         fields =['公司名稱', '職缺名稱', '職缺連結', '職務名稱', '職務類別', '工作待遇',
                  '薪資型態', '薪資下限', '薪資上限',
                  '工作性質', '上班地點', '遠端工作', '管理責任', '出差外派', '上班時段',
@@ -290,6 +332,7 @@ class Jobs:
         # 顯示圖形
         plt.gca().invert_yaxis()  # 倒轉y軸，讓最高的頻率在頂部
         plt.show()
+        return plt
     
     def parse_salary(self, s):
         pattern_1 = r"(時薪|面議|月薪|年薪|論件計酬|日薪)([\d,]+)~([\d,]+)元"
@@ -311,7 +354,7 @@ class Jobs:
         else:
             return {"薪資型態": "未知", "薪資下限": "未知", "薪資上限": "未知"}
     
-    def draw_box(self):
+    def draw_box(self, show = True):
         df = self.jobs.copy()
         # Filter the dataframe
         df = df[df['薪資型態'] == '月薪']
@@ -323,11 +366,16 @@ class Jobs:
         df['薪資上限'] = df['薪資上限'].str.replace(',', '').astype(float)
         # Plot boxplot
         df[['薪資下限', '薪資上限']].plot(kind='box')
-        plt.title('月薪下限和上限的箱型圖')
+        plt.title(self.keyword + '月薪下限和上限的箱型圖')
         plt.ylabel('薪資')
-        plt.show()
-    
-    def draw_density(self):
+        if show:#show也會清空
+            plt.show()
+        else:
+            print("儲存plt")
+            plt.savefig(self.get_static_temp_path()+"/salary_boxplot.png", dpi=150, bbox_inches='tight')
+        plt.close()
+
+    def draw_density(self, show = True):
         df = self.jobs.copy()
         # Filter the dataframe
         df = df[df['薪資型態'] == '月薪']
@@ -344,19 +392,41 @@ class Jobs:
         df['薪資下限'].plot(kind='kde', label='薪資下限')
         df['薪資上限'].plot(kind='kde', label='薪資上限')
 
-        plt.title('月薪下限和上限的密度分佈')
+        plt.title(self.keyword + '月薪下限和上限的密度分佈')
         plt.xlabel('薪資')
         plt.ylabel('密度')
         plt.legend()
-        plt.show()
+        if show:
+            plt.show()
+        else:
+            path = self.get_static_temp_path() + "/salary_density.png"
+            print("儲存plt", path)
+            plt.savefig(path, bbox_inches='tight')
+        plt.close()
 
+
+    def get_static_temp_path(self):
+        # 獲取當前檔案的目錄
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+
+        # 往上一層一層地搜尋，直到找到包含 'findJobs' 或 'FindJobsTW' 的路徑
+        while current_dir != os.path.sep:
+            if 'findJobs' in current_dir or 'FindJobsTW' in current_dir:
+                return os.path.relpath(os.path.join(current_dir, 'static/temp'))
+            current_dir = os.path.dirname(current_dir)
+
+    
 if __name__ == "__main__":
-    keyword = "數據分析師"
+    #a = Jobs("111")
+    #print(a.get_static_temp_path())
+    #print(os.path.relpath(a.get_static_temp_path()))
+    keyword = "分析師"
     jobs = Jobs(keyword)
     jobs.search_links(max_pages = 1)#一頁是20個職缺
-    jobs.find_jobs()
+    jobs.find_jobs(max_jobs = 10)
     jobs.save_jobs()
-    jobs.draw_box()
-    jobs.draw_density()
+    jobs.draw_box(show = False)
+    jobs.draw_density(show = False)
     #jobs.show("all") #一次秀出全部
     jobs.show("職務類別")
+    #help()

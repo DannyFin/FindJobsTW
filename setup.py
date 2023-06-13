@@ -6,9 +6,12 @@ with open('requirements.txt') as f:
     
 setup(
     name='FindJobsTW',    
-    version='0.3.1',      
+    version='1.0.3',      
     packages=find_packages(),    
     install_requires=requirements,
+    package_data={
+        'findJobs': ['templates/*', 'static/*']
+    },  
     author="Danny Fin",
     author_email="dannyfinselect@outlook.com",
     description="A Python package to find jobs on 104.com.tw based on specific keywords.",
