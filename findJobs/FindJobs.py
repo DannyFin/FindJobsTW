@@ -380,7 +380,13 @@ class Jobs:
         # 往上一層一層地搜尋，直到找到包含 'findJobs' 或 'FindJobsTW' 的路徑
         while current_dir != os.path.sep:
             if 'findJobs' in current_dir or 'FindJobsTW' in current_dir:
-                return os.path.relpath(os.path.join(current_dir, 'static/temp'))
+                target_dir = os.path.relpath(os.path.join(current_dir, 'static/temp'))
+                
+                # 檢查目標資料夾是否存在，若不存在則建立新的資料夾
+                if not os.path.exists(target_dir):
+                    os.makedirs(target_dir)
+
+                return target_dir
             current_dir = os.path.dirname(current_dir)
     
     def help(self):
@@ -389,7 +395,7 @@ class Jobs:
         text1 = '''
             from threading import Timer
             import webbrowser
-            from findJobs import create_app, hlep
+            from findJobs import create_app
 
             def open_browser():
                 webbrowser.open_new('http://127.0.0.1:5000/')
@@ -422,10 +428,10 @@ class Jobs:
 
     
 if __name__ == "__main__":
-    a = Jobs("111")
-    a.help()
+    #a = Jobs("111")
+    #a.help()
     #print(os.path.relpath(a.get_static_temp_path()))
-''' keyword = "分析師"
+    keyword = "分析師"
     jobs = Jobs(keyword)
     jobs.search_links(max_pages = 1)#一頁是20個職缺
     jobs.find_jobs(max_jobs = 10)
@@ -434,4 +440,4 @@ if __name__ == "__main__":
     jobs.draw_density(show = False)
     #jobs.show("all") #一次秀出全部
     jobs.show("職務類別")
-    #help()'''
+    #help()
